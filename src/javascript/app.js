@@ -13,16 +13,23 @@ Ext.define("portfolio-iteration-summary", {
     },
     launch: function() {
 
-        CArABU.technicalservices.Utility.fetchPortfolioItemTypes().then({
+        Deft.Promise.all([
+            CArABU.technicalservices.Utility.fetchPortfolioItemTypes(),
+            this.fetchIterations()
+        ], this).then({
+        //CArABU.technicalservices.Utility.fetchPortfolioItemTypes().then({
             success: this.addPickers,
             failure: this.showErrorNotification,
             scope: this
         });
     },
 
-    addPickers: function(portfolioItemTypes){
+    addPickers: function(results){
+        var portfolioItemTypes = results[0],
+            iterations = results[1];
+
         this.portfolioItemTypes = portfolioItemTypes;
-        this.logger.log('addPortfolioPicker', portfolioItemTypes,portfolioItemTypes.slice(0,2));
+        this.logger.log('addPortfolioPickerx', results, portfolioItemTypes,portfolioItemTypes.slice(0,2), iterations);
 
         this.getSelectorBox().removeAll();
 
@@ -40,11 +47,31 @@ Ext.define("portfolio-iteration-summary", {
             }
         });
 
+        var iterationHash = {},
+            iterationNames = [];
+
+        for (var i=0; i<iterations.length; i++){
+            var iteration = iterations[i];
+            iterationHash[iteration.get('ObjectID')] =iteration.getData();
+            if (!Ext.Array.contains(iterationNames, iteration.get('Name'))){
+                iterationNames.push(iteration.get('Name'));
+                //iterationNames.push({_refObjectName: iteration.get('Name'), _ref: iteration.get('Name')});
+            }
+        }
+        this.logger.log('iterations', iterations, iterationHash, iterationNames);
+        this.iterationHash = iterationHash;
         this.getSelectorBox().add({
-            xtype:'rallyiterationcombobox',
-            text: 'Iterations',
-            multiSelect: true,
-            valueField: 'Name'
+            xtype:'rallycombobox',
+            fieldLabel: 'Iterations',
+            itemId: 'cbIteration',
+            margin: '0 10 0 10',
+            width: 200,
+            labelAlign: 'right',
+            store: Ext.create('Rally.data.custom.Store',{
+                data: _.map(iterationNames, function(i){ return {_refObjectName: i, _ref: i}; }),
+                fields: ['_refObjectName','_ref']
+            }),
+            multiSelect: true
         });
 
         this.getSelectorBox().add({
@@ -77,21 +104,12 @@ Ext.define("portfolio-iteration-summary", {
             return;
         }
 
-        var iterations = this.down('rallyiterationcombobox').getValue() || [];
+        var iterations = this.down('#cbIteration').getValue() || [];
 
         this.logger.log('updateView', pi, iterations);
 
-        if (iterations.length > 0){
-            this.fetchIterations(iterations).then({
-                success: function(iterationRecords){
-                    this.fetchStorySnapshots(iterationRecords, pi);
-                },
-                failure: this.showErrorNotification,
-                scope: this
-            });
-        } else {
-            this.fetchStorySnapshots(iterations, pi);
-        }
+        this.fetchStorySnapshots(iterations, pi);
+
 
     },
     getFeatureFieldName: function(){
@@ -119,15 +137,16 @@ Ext.define("portfolio-iteration-summary", {
             value: pi.get('ObjectID')
         });
     },
-    fetchIterations: function(names){
-        var filters = _.map(names, function(n){ return {property: 'Name', value: n} });
-        filters = Rally.data.wsapi.Filter.or(filters);
+    fetchIterations: function(){
 
         return CArABU.technicalservices.Utility.fetchWsapiRecords({
             model: 'Iteration',
             fetch: ['Name','ObjectID','StartDate','EndDate','Project'],
-            filters: filters,
-            limit: 'Infinity'
+            limit: 'Infinity',
+            sorters: [{
+                property: 'EndDate',
+                direction: 'DESC'
+            }]
         });
     },
     getStorySnapshotFetchList: function(){
@@ -136,13 +155,22 @@ Ext.define("portfolio-iteration-summary", {
     fetchStorySnapshots: function(iterations, pi){
         this.logger.log('fetchStorySnapshots',iterations, pi);
 
+
+        var selectedIterationOids = [],
+            iterationHash = this.iterationHash;
+        Ext.Object.each(iterationHash, function(oid, data){
+            if (Ext.Array.contains(iterations, data.Name)){
+                selectedIterationOids.push(Number(oid));
+            }
+        });
+        this.logger.log('fetchStorySnapshots selectedIterationOids', selectedIterationOids);
         var find = {
             _TypeHierarchy: 'HierarchicalRequirement',
-            _ItemHierarchy: pi.get('ObjectID')
+            _ItemHierarchy: pi.get('ObjectID'),
+            __At: "current"
         };
-        if (iterations.length > 0){
-            var oids = Ext.Array.map(iterations, function(i){ return i.get('ObjectID')});
-            find.Iteration = {$in: oids};
+        if (selectedIterationOids.length > 0){
+            find.Iteration = {$in: selectedIterationOids};
         } else {
             find.Iteration = {$ne: null};
         }
@@ -154,7 +182,7 @@ Ext.define("portfolio-iteration-summary", {
             hydrate: ['Project', 'Iteration']
         }).then({
             success: function(snapshots){
-                this.processSnapshots(snapshots, iterations, pi);
+                this.processSnapshots(snapshots, selectedIterationOids, iterations, pi);
             },
             failure: this.showErrorNotification,
             scope: this
@@ -162,19 +190,12 @@ Ext.define("portfolio-iteration-summary", {
             this.setLoading(false);
         }, this);
     },
-    processSnapshots: function(snapshots, iterations, pi){
-        this.logger.log('processSnapshots', snapshots, iterations, pi);
+    processSnapshots: function(snapshots, selectedIterationOids, selectedIterationNames, pi){
+        this.logger.log('processSnapshots', snapshots, selectedIterationOids, pi);
 
         //Organize Snapshots by project
         var projectHash = {},
-            iterationHash = {};
-
-        Ext.Array.each(iterations || [], function(i){
-            var oid = i.get('ObjectID');
-            iterationHash[oid] = i.getData();
-        });
-
-        var keys = Ext.Object.getKeys(iterationHash);
+            iterationHash = this.iterationHash;
 
         for (var i=0; i<snapshots.length; i++){
 
@@ -185,14 +206,10 @@ Ext.define("portfolio-iteration-summary", {
                 projectHash[projectName] = {snaps: []};
             }
 
-            projectHash[projectName].snaps.push(snap);
-
             if (snap.Iteration){
                 var iterationOid = snap.Iteration.ObjectID;
-                if (Ext.Array.contains(keys, iterationOid) || keys.length === 0){
-                    if (!iterationHash[iterationOid]){
-                        iterationHash[iterationOid] = snap.Iteration;
-                    }
+                if (Ext.Array.contains(selectedIterationOids, iterationOid) || selectedIterationOids.length === 0){
+                    projectHash[projectName].snaps.push(snap);
                 }
             }
         }
@@ -200,23 +217,17 @@ Ext.define("portfolio-iteration-summary", {
         this.logger.log('processSnapshots', projectHash, iterationHash);
 
 
-        var iterationNames = [];
-        Ext.Object.each(iterationHash, function(oid, obj){
-            if (!Ext.Array.contains(iterationNames, obj.Name)){
-                iterationNames.push(obj.Name);
-            }
-        });
-
         var data = [];
         Ext.Object.each(projectHash, function(key, obj){
             var row = {project: key},
                 snaps = obj.snaps;
 
-            Ext.Array.each(iterationNames, function(n){
+            Ext.Array.each(selectedIterationNames, function(n){
                 var name = this.keyify(n);
                 row[name] = 0;
                 Ext.Array.each(snaps, function(s){
                     if (s.Iteration && s.Iteration.Name === n){
+                        console.log('s', s.PlanEstimate, s.Iteration.Name, n, key,row[name]);
                         row[name] += (s.PlanEstimate || 0);
                     }
                 });
@@ -224,12 +235,12 @@ Ext.define("portfolio-iteration-summary", {
             data.push(row);
         }, this);
 
-        this.addGrid(data, iterationNames, iterationHash);
+        this.addGrid(data, selectedIterationNames);
     },
     keyify: function(key){
         return key.toString().split('.').join('x');
     },
-    addGrid: function(data, iterationNames, iterationHash){
+    addGrid: function(data, iterationNames){
 
         var fields = [{name: 'project', displayName: 'Project'}];
         Ext.Array.each(iterationNames, function(n){

@@ -1,5 +1,13 @@
 #Portfolio Iteration Summary
 
+For each Team in scope and selected iteration, show the total of the Plan Estimate for the selected portfolio item. 
+ 
+Selected portfolio items can be the lowest level or second level portfolio items.  
+ 
+ ![ScreenShot](/images/portfolio-iteration-summary.png)
+
+Iterations are classified by Name only (not name and start/end date).
+
 ## Development Notes
 
 ### First Load
