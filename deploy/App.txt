@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Portfolio Iteration Summary</title>
+    <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
+    <!--  Build Date: Tue Nov 01 2016 10:46:14 GMT-0600 (MDT) -->
+    
+    <script type="text/javascript">
+        var APP_BUILD_DATE = "Tue Nov 01 2016 10:46:14 GMT-0600 (MDT)";
+        var BUILDER = "kcorkan";
+        var CHECKSUM = 7949153207;
+    </script>
+    
+    <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function() {
+             
+/**
+ * A link that pops up a version dialog box
+ */
+
+Ext.define('Rally.technicalservices.InfoLink',{
+    extend: 'Rally.ui.dialog.Dialog',
+    alias: 'widget.tsinfolink',
+    
+    /**
+     * @cfg {String} informationHtml
+     * Additional text to be displayed on the popup dialog (for exmaple,
+     * to add a description of the app's use or functionality)
+     */
+    informationHtml: null,
+    
+    /**
+     * 
+     * cfg {String} title
+     * The title for the dialog box
+     */
+    title: "Build Information",
+    
+    defaults: { padding: 5, margin: 5 },
+
+    closable: true,
+     
+    draggable: true,
+
+    autoShow: true,
+   
+    width: 350,
+    
+    informationalConfig: null,
+    
+    items: [{xtype:'container', itemId:'information' }],
+    
+    initComponent: function() {
+        var id = Ext.id(this);
+        this.title =  "<span class='icon-help'> </span>" + this.title;
+        this.callParent(arguments);
+    },
+    
+    _generateChecksum: function(string){
+        var chk = 0x12345678,
+            i;
+        string = string.replace(/var CHECKSUM = .*;/,"");
+        string = string.replace(/var BUILDER = .*;/,"");
+        string = string.replace(/\s/g,"");  //Remove all whitespace from the string.
+       
+        for (i = 0; i < string.length; i++) {
+            chk += (string.charCodeAt(i) * i);
+        }
+   
+        return chk;
+    },
+    
+    _checkChecksum: function(container) {
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+        
+        Ext.Ajax.request({
+            url: document.URL,
+            params: {
+                id: 1
+            },
+            success: function (response) {
+                text = response.responseText;
+                if ( CHECKSUM ) {
+                    var stored_checksum = me._generateChecksum(text);
+                    if ( CHECKSUM !== stored_checksum ) {
+                        deferred.resolve(false);
+                        return;
+                    }
+                }
+                deferred.resolve(true);
+            }
+        });
+        
+        return deferred.promise;
+    },
+    
+    _addToContainer: function(container){
+        var config = Ext.apply({
+            xtype:'container',
+            height: 200,
+            overflowY: true
+        }, this.informationalConfig);
+        
+        container.add(config);
+    },
+    
+    afterRender: function() {
+        var app = Rally.getApp();
+        
+        if ( !Ext.isEmpty( this.informationalConfig ) ) {
+            var container = this.down('#information');
+            this._addToContainer(container);
+            
+        }
+        
+        if (! app.isExternal() ) {
+            this._checkChecksum(app).then({
+                scope: this,
+                success: function(result){
+                    if ( !result ) {
+                        this.addDocked({
+                            xtype:'container',
+                            cls: 'build-info',
+                            dock: 'bottom',
+                            padding: 2,
+                            html:'<span class="icon-warning"> </span>Checksums do not match'
+                        });
+                    }
+                },
+                failure: function(msg){
+                    console.log("oops:",msg);
+                }
+            });
+        } else {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                dock: 'bottom',
+                html:'... Running externally'
+            });
+        }
+        this.callParent(arguments);
+    },
+    
+    beforeRender: function() {
+        var me = this;
+        this.callParent(arguments);
+
+        if (this.informationHtml) {
+            this.addDocked({
+                xtype: 'component',
+                componentCls: 'intro-panel',
+                padding: 2,
+                html: this.informationHtml,
+                doc: 'top'
+            });
+        }
+        
+        this.addDocked({
+            xtype:'container',
+            cls: 'build-info',
+            padding: 2,
+            dock:'bottom',
+            html:"This app was created by the CA AC Technical Services Team."
+        });
+        
+        if ( APP_BUILD_DATE ) {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                dock: 'bottom',
+                html: Ext.String.format("Build date/time: {0} ({1})",
+                    APP_BUILD_DATE,
+                    BUILDER)
+            });
+        }
+    }
+});
+
+/*
+ */
+Ext.define('Rally.technicalservices.Logger',{
+    constructor: function(config){
+        Ext.apply(this,config);
+    },
+    log: function(args){
+        var timestamp = "[ " + Ext.util.Format.date(new Date(), "Y-m-d H:i:s.u") + " ]";
+        //var output_args = arguments;
+        //output_args.unshift( [ "[ " + timestamp + " ]" ] );
+        //output_args = Ext.Array.push(output_args,arguments);
+        
+        var output_args = [];
+        output_args = Ext.Array.push(output_args,[timestamp]);
+        output_args = Ext.Array.push(output_args, Ext.Array.slice(arguments,0));
+
+        window.console && console.log.apply(console,output_args);
+    }
+
+});
+
+Ext.define('CArABU.technicalservices.Utility',{
+    singleton: true,
+
+    fetchSnapshots: function(config){
+        var deferred = Ext.create('Deft.Deferred');
+
+        config.removeUnauthorizedSnapshots = true;
+        config.limit = 'Infinity';
+
+        Ext.create('Rally.data.lookback.SnapshotStore', config).load({
+            callback: function(records, operation, success){
+                if (success){
+                    deferred.resolve(records);
+                } else {
+                    var error_msg = '';
+                    if (operation && operation.error && operation.error.errors){
+                        error_msg = operation.error.errors.join(',');
+                    }
+                    deferred.reject('Error fetching snapshots:  ' + error_msg);
+                }
+            }
+        });
+        return deferred;
+    },
+
+    fetchWsapiRecords: function(config){
+        var deferred = Ext.create('Deft.Deferred');
+
+        config.pageSize = 2000;
+
+        Ext.create('Rally.data.wsapi.Store', config).load({
+            callback: function(records, operation, success){
+                if (success){
+                    deferred.resolve(records);
+                } else {
+                    var error_msg = '';
+                    if (operation && operation.error && operation.error.errors){
+                        error_msg = operation.error.errors.join(',');
+                    }
+                    deferred.reject('Error fetching records:  ' + error_msg);
+                }
+            }
+        });
+        return deferred;
+    },
+
+    fetchPortfolioItemTypes: function(context){
+        var deferred = Ext.create('Deft.Deferred');
+
+        Ext.create('Rally.data.wsapi.Store', {
+            model: 'TypeDefinition',
+            fetch: ['TypePath', 'Ordinal','Name'],
+            context: context,
+            filters: [
+                {
+                    property: 'Parent.Name',
+                    operator: '=',
+                    value: 'Portfolio Item'
+                },
+                {
+                    property: 'Creatable',
+                    operator: '=',
+                    value: 'true'
+                }
+            ],
+            sorters: [{
+                property: 'Ordinal',
+                direction: 'ASC'
+            }]
+        }).load({
+            callback: function(records, operation, success){
+                if (success){
+                    var types = Ext.Array.map(records, function(r){ return r.get('TypePath'); });
+
+                    deferred.resolve(types);
+                } else {
+                    var error_msg = '';
+                    if (operation && operation.error && operation.error.errors){
+                        error_msg = operation.error.errors.join(',');
+                    }
+                    deferred.reject('Error loading Portfolio Item Types:  ' + error_msg);
+                }
+            }
+        });
+        return deferred.promise;
+    }
+});
+Ext.define("portfolio-iteration-summary", {
+    extend: 'Rally.app.App',
+    componentCls: 'app',
+    logger: new Rally.technicalservices.Logger(),
+    defaults: { margin: 10 },
+    items: [
+        {xtype:'container',itemId:'selector_box', layout: 'hbox'},
+        {xtype:'container',itemId:'display_box'}
+    ],
+
+    integrationHeaders : {
+        name : "portfolio-iteration-summary"
+    },
+    launch: function() {
+
+        Deft.Promise.all([
+            CArABU.technicalservices.Utility.fetchPortfolioItemTypes(),
+            this.fetchIterations()
+        ], this).then({
+        //CArABU.technicalservices.Utility.fetchPortfolioItemTypes().then({
+            success: this.addPickers,
+            failure: this.showErrorNotification,
+            scope: this
+        });
+    },
+
+    addPickers: function(results){
+        var portfolioItemTypes = results[0],
+            iterations = results[1];
+
+        this.portfolioItemTypes = portfolioItemTypes;
+        this.logger.log('addPortfolioPickerx', results, portfolioItemTypes,portfolioItemTypes.slice(0,2), iterations);
+
+        this.getSelectorBox().removeAll();
+
+        this.getSelectorBox().add({
+            xtype: 'rallyartifactsearchcombobox',
+            width: 500,
+            labelWidth: 100,
+            fieldLabel: "Portfolio Item",
+            labelAlign: 'right',
+            remoteFilter: true,
+            storeConfig: {
+                pageSize: 200,
+                models: portfolioItemTypes.slice(0,2),
+                context: {project: null}
+            }
+        });
+
+        var iterationHash = {},
+            iterationNames = [];
+
+        for (var i=0; i<iterations.length; i++){
+            var iteration = iterations[i];
+            iterationHash[iteration.get('ObjectID')] =iteration.getData();
+            if (!Ext.Array.contains(iterationNames, iteration.get('Name'))){
+                iterationNames.push(iteration.get('Name'));
+                //iterationNames.push({_refObjectName: iteration.get('Name'), _ref: iteration.get('Name')});
+            }
+        }
+        this.logger.log('iterations', iterations, iterationHash, iterationNames);
+        this.iterationHash = iterationHash;
+        this.getSelectorBox().add({
+            xtype:'rallycombobox',
+            fieldLabel: 'Iterations',
+            itemId: 'cbIteration',
+            margin: '0 10 0 10',
+            width: 200,
+            labelAlign: 'right',
+            store: Ext.create('Rally.data.custom.Store',{
+                data: _.map(iterationNames, function(i){ return {_refObjectName: i, _ref: i}; }),
+                fields: ['_refObjectName','_ref']
+            }),
+            multiSelect: true
+        });
+
+        this.getSelectorBox().add({
+                xtype: 'rallybutton',
+                text: 'Update',
+                margin: '0 10 0 10',
+                listeners: {
+                    click: this.updateView,
+                    scope: this
+                }
+            });
+    },
+    getSelectorBox: function(){
+        return this.down('#selector_box');
+    },
+    getDisplayBox: function(){
+        return this.down('#display_box');
+    },
+    getPortfolioItem: function(){
+        return this.down('rallyartifactsearchcombobox') && this.down('rallyartifactsearchcombobox').getRecord() || null;
+    },
+    updateView: function(){
+
+        this.getDisplayBox().removeAll();
+
+        var pi = this.getPortfolioItem();
+        this.logger.log('updateView', pi);
+        if (!pi ){
+            this.showNoData("Please select a portfolio item.");
+            return;
+        }
+
+        var iterations = this.down('#cbIteration').getValue() || [];
+
+        this.logger.log('updateView', pi, iterations);
+
+        this.fetchStorySnapshots(iterations, pi);
+
+
+    },
+    getFeatureFieldName: function(){
+        return this.portfolioItemTypes && this.portfolioItemTypes[0] && this.portfolioItemTypes[0].replace("PortfolioItem/","") || null;
+    },
+    getPortfolioFilter: function(pi){
+        var type = pi.get('_type');
+        this.logger.log('fetchStories',type);
+        var idx = 0;
+        Ext.Array.each(this.portfolioItemTypes, function(t){
+            if (t.toLowerCase() === type){
+                return false;
+            }
+            idx++;
+        });
+
+        var property = this.getFeatureFieldName();
+        if (idx > 0){
+            property = property + ".Parent";
+        }
+        property = property + '.ObjectID';
+
+        return Ext.create('Rally.data.wsapi.Filter',{
+            property: property ,
+            value: pi.get('ObjectID')
+        });
+    },
+    fetchIterations: function(){
+
+        return CArABU.technicalservices.Utility.fetchWsapiRecords({
+            model: 'Iteration',
+            fetch: ['Name','ObjectID','StartDate','EndDate','Project'],
+            limit: 'Infinity',
+            sorters: [{
+                property: 'EndDate',
+                direction: 'DESC'
+            }]
+        });
+    },
+    getStorySnapshotFetchList: function(){
+        return ['ObjectID','Iteration','Release','PlanEstimate','ScheduleState','AcceptedDate','TaskEstimateTotal','TaskRemainingTotal','Project','_ValidFrom','_ValidTo'];
+    },
+    fetchStorySnapshots: function(iterations, pi){
+        this.logger.log('fetchStorySnapshots',iterations, pi);
+
+
+        var selectedIterationOids = [],
+            iterationHash = this.iterationHash;
+        Ext.Object.each(iterationHash, function(oid, data){
+            if (Ext.Array.contains(iterations, data.Name)){
+                selectedIterationOids.push(Number(oid));
+            }
+        });
+        this.logger.log('fetchStorySnapshots selectedIterationOids', selectedIterationOids);
+        var find = {
+            _TypeHierarchy: 'HierarchicalRequirement',
+            _ItemHierarchy: pi.get('ObjectID'),
+            __At: "current"
+        };
+        if (selectedIterationOids.length > 0){
+            find.Iteration = {$in: selectedIterationOids};
+        } else {
+            find.Iteration = {$ne: null};
+        }
+
+        this.setLoading(true);
+        CArABU.technicalservices.Utility.fetchSnapshots({
+            find: find,
+            fetch: this.getStorySnapshotFetchList(),
+            hydrate: ['Project', 'Iteration']
+        }).then({
+            success: function(snapshots){
+                this.processSnapshots(snapshots, selectedIterationOids, iterations, pi);
+            },
+            failure: this.showErrorNotification,
+            scope: this
+        }).always(function(){
+            this.setLoading(false);
+        }, this);
+    },
+    processSnapshots: function(snapshots, selectedIterationOids, selectedIterationNames, pi){
+        this.logger.log('processSnapshots', snapshots, selectedIterationOids, pi);
+
+        //Organize Snapshots by project
+        var projectHash = {},
+            iterationHash = this.iterationHash;
+
+        for (var i=0; i<snapshots.length; i++){
+
+            var snap = snapshots[i].getData(),
+                projectName = snap.Project.Name;
+
+            if (!projectHash[projectName]){
+                projectHash[projectName] = {snaps: []};
+            }
+
+            if (snap.Iteration){
+                var iterationOid = snap.Iteration.ObjectID;
+                if (Ext.Array.contains(selectedIterationOids, iterationOid) || selectedIterationOids.length === 0){
+                    projectHash[projectName].snaps.push(snap);
+                }
+            }
+        }
+
+        this.logger.log('processSnapshots', projectHash, iterationHash);
+
+
+        var data = [];
+        Ext.Object.each(projectHash, function(key, obj){
+            var row = {project: key},
+                snaps = obj.snaps;
+
+            Ext.Array.each(selectedIterationNames, function(n){
+                var name = this.keyify(n);
+                row[name] = 0;
+                Ext.Array.each(snaps, function(s){
+                    if (s.Iteration && s.Iteration.Name === n){
+                        console.log('s', s.PlanEstimate, s.Iteration.Name, n, key,row[name]);
+                        row[name] += (s.PlanEstimate || 0);
+                    }
+                });
+            }, this);
+            data.push(row);
+        }, this);
+
+        this.addGrid(data, selectedIterationNames);
+    },
+    keyify: function(key){
+        return key.toString().split('.').join('x');
+    },
+    addGrid: function(data, iterationNames){
+
+        var fields = [{name: 'project', displayName: 'Project'}];
+        Ext.Array.each(iterationNames, function(n){
+            var name = this.keyify(n);
+            fields.push({name: name, displayName: n});
+        }, this);
+
+
+        this.logger.log('addGrid', data, fields);
+        this.getDisplayBox().add({
+            xtype: 'rallygrid',
+            store: Ext.create('Rally.data.custom.Store',{
+                data: data,
+                fields: fields,
+                pageSize: data.length
+            }),
+            margin: '25 0 0 0',
+            columnCfgs: this.getColumnCfgs(fields),
+           // pageSize: data.length,
+            showPagingToolbar: false,
+            showRowActionsColumn: false
+        });
+    },
+
+
+    getColumnCfgs: function(fields){
+
+        var cols = [{
+            dataIndex: 'project',
+            text: 'Project',
+            flex: 2
+        }];
+        Ext.Array.each(fields, function(f){
+            if (f.name !== 'project'){
+                cols.push({
+                    dataIndex: f.name,
+                    text: f.displayName,
+                    flex: 1
+                });
+            }
+        });
+        this.logger.log('getColumnCfgs', cols);
+        return cols;
+    },
+    showErrorNotification: function(msg){
+        this.setLoading(false);
+        Rally.ui.notify.Notifier.showError({message: msg});
+    },
+    showNoData: function(msg){
+
+        if (!msg){
+            msg = 'No data found for the selected item.';
+        }
+
+        this.getDisplayBox().add({
+            xtype: 'container',
+            html: '<div class="no-data-container"><div class="secondary-message">' + msg + '</div></div>'
+        });
+    },
+    getOptions: function() {
+        return [
+            {
+                text: 'About...',
+                handler: this._launchInfo,
+                scope: this
+            }
+        ];
+    },
+    _launchInfo: function() {
+        if ( this.about_dialog ) { this.about_dialog.destroy(); }
+        this.about_dialog = Ext.create('Rally.technicalservices.InfoLink',{});
+    },
+    isExternal: function(){
+        return typeof(this.getAppId()) == 'undefined';
+    },
+    onSettingsUpdate: function (settings){
+        this.logger.log('onSettingsUpdate',settings);
+        // Ext.apply(this, settings);
+        this.launch();
+    }
+});
+
+            
+               Rally.launchApp('portfolio-iteration-summary', {
+                   name: 'Portfolio Iteration Summary'
+               });
+        });
+    </script>
+    
+    <style type="text/css">
+
+.app {
+}
+.tsinfolink {
+    position:absolute;
+    right:0px;
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    text-align: center;
+    color: white;
+    background: #C0C0C0;
+    border-style: solid;
+    border-width: 1px;
+    margin-top: 25px;
+    margin-right: 5px;
+    cursor: pointer;
+}
+    </style>
+
+</head>
+<body></body>
+</html>
