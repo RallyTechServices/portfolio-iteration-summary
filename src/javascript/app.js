@@ -11,25 +11,49 @@ Ext.define("portfolio-iteration-summary", {
     integrationHeaders : {
         name : "portfolio-iteration-summary"
     },
-    launch: function() {
+   
+    config: {
+        defaultSettings: {
+            piTypeField: 'PortfolioItem/Feature'
+        }
+    },
 
+    getSettingsFields: function() {
+        var me = this;
+
+        return [{
+            xtype: 'rallyportfolioitemtypecombobox',
+            name: 'piTypeField',
+            itemId:'piTypeField',
+            fieldLabel: 'Select PI Type',
+            labelWidth: 125,
+            labelAlign: 'left',
+            minWidth: 200,
+            displayField:'TypePath',
+            valueField:'TypePath'           
+        }];
+
+    },
+    launch: function() {
+        var me = this;
+        //console.log("PI Set")
+        //me.setLoading("Loading");
         Deft.Promise.all([
-            CArABU.technicalservices.Utility.fetchPortfolioItemTypes(),
-            this.fetchIterations()
-        ], this).then({
+            me.fetchIterations()
+        ], me).then({
         //CArABU.technicalservices.Utility.fetchPortfolioItemTypes().then({
-            success: this.addPickers,
-            failure: this.showErrorNotification,
-            scope: this
+            success: me.addPickers,
+            failure: me.showErrorNotification,
+            scope: me
         });
     },
 
     addPickers: function(results){
-        var portfolioItemTypes = results[0],
-            iterations = results[1];
+        var me = this;
+        var iterations = results[0];
 
-        this.portfolioItemTypes = portfolioItemTypes;
-        this.logger.log('addPortfolioPickerx', results, portfolioItemTypes,portfolioItemTypes.slice(0,2), iterations);
+        // this.portfolioItemTypes = portfolioItemTypes;
+        // this.logger.log('addPortfolioPickerx', results, portfolioItemTypes,portfolioItemTypes.slice(0,2), iterations);
 
         this.getSelectorBox().removeAll();
 
@@ -42,7 +66,7 @@ Ext.define("portfolio-iteration-summary", {
             remoteFilter: true,
             storeConfig: {
                 pageSize: 200,
-                models: portfolioItemTypes.slice(0,2),
+                models: [me.getSetting('piTypeField')],
                 context: {project: null}
             }
         });
@@ -264,7 +288,6 @@ Ext.define("portfolio-iteration-summary", {
             showRowActionsColumn: false
         });
     },
-
 
     getColumnCfgs: function(fields){
 

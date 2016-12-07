@@ -61,7 +61,7 @@ Ext.define('CArABU.technicalservices.Utility',{
                     property: 'Creatable',
                     operator: '=',
                     value: 'true'
-                }
+                }         
             ],
             sorters: [{
                 property: 'Ordinal',
