@@ -3,12 +3,12 @@
 <head>
     <title>Portfolio Iteration Summary</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Dec 06 2016 20:45:21 GMT-0800 (PST) -->
+    <!--  Build Date: Thu Dec 15 2016 14:30:34 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Dec 06 2016 20:45:21 GMT-0800 (PST)";
+        var APP_BUILD_DATE = "Thu Dec 15 2016 14:30:34 GMT-0800 (PST)";
         var BUILDER = "arajaraman";
-        var CHECKSUM = 8295400171;
+        var CHECKSUM = 8341461973;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -459,6 +459,7 @@ Ext.define("portfolio-iteration-summary", {
             model: 'Iteration',
             fetch: ['Name','ObjectID','StartDate','EndDate','Project'],
             limit: 'Infinity',
+            enablePostGet:true,
             sorters: [{
                 property: 'EndDate',
                 direction: 'DESC'
@@ -495,7 +496,8 @@ Ext.define("portfolio-iteration-summary", {
         CArABU.technicalservices.Utility.fetchSnapshots({
             find: find,
             fetch: this.getStorySnapshotFetchList(),
-            hydrate: ['Project', 'Iteration']
+            hydrate: ['Project', 'Iteration'],
+            useHttpPost:true
         }).then({
             success: function(snapshots){
                 this.processSnapshots(snapshots, selectedIterationOids, iterations, pi);

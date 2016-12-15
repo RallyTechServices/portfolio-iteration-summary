@@ -167,6 +167,7 @@ Ext.define("portfolio-iteration-summary", {
             model: 'Iteration',
             fetch: ['Name','ObjectID','StartDate','EndDate','Project'],
             limit: 'Infinity',
+            enablePostGet:true,
             sorters: [{
                 property: 'EndDate',
                 direction: 'DESC'
@@ -203,7 +204,8 @@ Ext.define("portfolio-iteration-summary", {
         CArABU.technicalservices.Utility.fetchSnapshots({
             find: find,
             fetch: this.getStorySnapshotFetchList(),
-            hydrate: ['Project', 'Iteration']
+            hydrate: ['Project', 'Iteration'],
+            useHttpPost:true
         }).then({
             success: function(snapshots){
                 this.processSnapshots(snapshots, selectedIterationOids, iterations, pi);
