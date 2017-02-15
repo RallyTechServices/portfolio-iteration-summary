@@ -3,12 +3,12 @@
 <head>
     <title>Portfolio Iteration Summary</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Dec 15 2016 14:30:34 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Feb 15 2017 13:33:13 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Dec 15 2016 14:30:34 GMT-0800 (PST)";
+        var APP_BUILD_DATE = "Wed Feb 15 2017 13:33:13 GMT-0800 (PST)";
         var BUILDER = "arajaraman";
-        var CHECKSUM = 8341461973;
+        var CHECKSUM = 8394058190;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -329,7 +329,7 @@ Ext.define("portfolio-iteration-summary", {
     launch: function() {
         var me = this;
         //console.log("PI Set")
-        //me.setLoading("Loading");
+        me.setLoading("Loading Iterations");
         Deft.Promise.all([
             me.fetchIterations()
         ], me).then({
@@ -385,7 +385,8 @@ Ext.define("portfolio-iteration-summary", {
             labelAlign: 'right',
             store: Ext.create('Rally.data.custom.Store',{
                 data: _.map(iterationNames, function(i){ return {_refObjectName: i, _ref: i}; }),
-                fields: ['_refObjectName','_ref']
+                fields: ['_refObjectName','_ref'],
+                pageSize:2000
             }),
             multiSelect: true
         });
@@ -399,6 +400,7 @@ Ext.define("portfolio-iteration-summary", {
                     scope: this
                 }
             });
+        me.setLoading(false);
     },
     getSelectorBox: function(){
         return this.down('#selector_box');
@@ -454,7 +456,6 @@ Ext.define("portfolio-iteration-summary", {
         });
     },
     fetchIterations: function(){
-
         return CArABU.technicalservices.Utility.fetchWsapiRecords({
             model: 'Iteration',
             fetch: ['Name','ObjectID','StartDate','EndDate','Project'],
