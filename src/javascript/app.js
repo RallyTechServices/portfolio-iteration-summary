@@ -37,7 +37,7 @@ Ext.define("portfolio-iteration-summary", {
     launch: function() {
         var me = this;
         //console.log("PI Set")
-        //me.setLoading("Loading");
+        me.setLoading("Loading Iterations");
         Deft.Promise.all([
             me.fetchIterations()
         ], me).then({
@@ -93,7 +93,8 @@ Ext.define("portfolio-iteration-summary", {
             labelAlign: 'right',
             store: Ext.create('Rally.data.custom.Store',{
                 data: _.map(iterationNames, function(i){ return {_refObjectName: i, _ref: i}; }),
-                fields: ['_refObjectName','_ref']
+                fields: ['_refObjectName','_ref'],
+                pageSize:2000
             }),
             multiSelect: true
         });
@@ -107,6 +108,7 @@ Ext.define("portfolio-iteration-summary", {
                     scope: this
                 }
             });
+        me.setLoading(false);
     },
     getSelectorBox: function(){
         return this.down('#selector_box');
@@ -162,7 +164,6 @@ Ext.define("portfolio-iteration-summary", {
         });
     },
     fetchIterations: function(){
-
         return CArABU.technicalservices.Utility.fetchWsapiRecords({
             model: 'Iteration',
             fetch: ['Name','ObjectID','StartDate','EndDate','Project'],
